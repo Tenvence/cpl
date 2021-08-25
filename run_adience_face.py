@@ -12,7 +12,7 @@ import time
 import datasets.adience_face as af_dataset
 import engine
 import lr_lambda as ll
-from ordinal_model import OrdinalModel
+from cpl import CplModel
 
 
 def get_args_parser():
@@ -22,11 +22,14 @@ def get_args_parser():
     parser.add_argument('--root', default='../../DataSet/AdienceFace', type=str)
     parser.add_argument('--scheduler', default=4, type=int)
 
-    # batch sizes
+    parser.add_argument('--feature_dim', default=512, type=int)
+    parser.add_argument('--cosine_scale', default=7., type=float)
+    parser.add_argument('--poisson_tau', default=1., type=float)
+    parser.add_argument('--constraint', default='U-P', type=str, help='{U-P, U-B, L-L, L-S}')
+
     parser.add_argument('--train_batch_size', default=64, type=int)
     parser.add_argument('--eval_batch_size', default=128, type=int)
 
-    # training
     parser.add_argument('--base_epochs', default=12, type=int)
     parser.add_argument('--lr', default=0.2, type=float)
     parser.add_argument('--anchor_lr_mul', default=10, type=float)
@@ -54,7 +57,7 @@ def set_random_seed(seed):
 def run_fold(fold_idx, args):
     train_data_loader, val_data_loader, test_data_loader, train_sampler = af_dataset.get_data_loader(args.root, fold_idx, args.train_batch_size, args.eval_batch_size)
 
-    model = OrdinalModel(num_clusters=8).cuda()
+    model = CplModel(num_ranks=8, dim=args.feature_dim, cosine_scale=args.cosine_scale, poisson_tau=args.poisson_tau, constraint=args.constraint).cuda()
     model = parallel.DistributedDataParallel(model, device_ids=[dist.get_rank()], find_unused_parameters=True)
 
     optim_parameters = [

@@ -9,7 +9,7 @@ import tqdm
 import datasets.historical_color as hc_dataset
 import engine
 import lr_lambda as ll
-from ordinal_model import OrdinalModel
+from cpl import CplModel
 
 
 def get_args_parser():
@@ -20,7 +20,11 @@ def get_args_parser():
     parser.add_argument('--device_id', default=0, type=int)
     parser.add_argument('--scheduler', default=4, type=int)
 
-    # batch sizes
+    parser.add_argument('--feature_dim', default=512, type=int)
+    parser.add_argument('--cosine_scale', default=7., type=float)
+    parser.add_argument('--poisson_tau', default=1., type=float)
+    parser.add_argument('--constraint', default='U-P', type=str, help='{U-P, U-B, L-L, L-S}')
+
     parser.add_argument('--train_batch_size', default=32, type=int)
     parser.add_argument('--eval_batch_size', default=64, type=int)
 
@@ -34,9 +38,6 @@ def get_args_parser():
     parser.add_argument('--warm_up_ratio', default=0.333, type=float)
     parser.add_argument('--base_milestones', default=[7, 11], type=list)
     parser.add_argument('--step_gamma', default=0.1, type=float)
-
-    parser.add_argument('--local_rank', default=0, type=int)
-    parser.add_argument('--master_rank', default=0, type=int)
 
     return parser.parse_args()
 
@@ -52,7 +53,7 @@ def run_fold(fold_idx, args):
     set_random_seed(args.random_seed + fold_idx)
     train_data_loader, val_data_loader, test_data_loader = hc_dataset.get_data_loaders(args.root, args.train_batch_size, args.eval_batch_size)
 
-    model = OrdinalModel(num_clusters=5).cuda()
+    model = CplModel(num_ranks=5, dim=args.feature_dim, cosine_scale=args.cosine_scale, poisson_tau=args.poisson_tau, constraint=args.constraint).cuda()
 
     optim_parameters = [
         {'params': [p for n, p in model.named_parameters() if n.startswith('feature_extractor') and p.requires_grad]},
