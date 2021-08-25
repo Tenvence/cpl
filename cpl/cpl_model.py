@@ -1,15 +1,18 @@
+import scipy.special
 import torch
 import torch.nn as nn
 import torch.nn.functional as func
 import torchvision.models as cv_models
-import proxies_learner as pl
+
+import cpl.proxies_learner as pl
 
 
 class CplModel(nn.Module):
-    def __init__(self, num_ranks, dim, cosine_scale, constraint):
+    def __init__(self, num_ranks, dim, cosine_scale, poisson_tau, constraint):
         super(CplModel, self).__init__()
         self.num_ranks = num_ranks
         self.cosine_scale = cosine_scale
+        self.poisson_tau = poisson_tau
         self.constraint = constraint
 
         self.feature_extractor = nn.Sequential(
@@ -37,7 +40,7 @@ class CplModel(nn.Module):
 
         assign_metric = None
         if self.constraint in {'U-P', 'U-B', 'L-L'}:
-            assign_metric = -torch.cdist(feature, proxies)
+            assign_metric = -torch.cdist(feature, proxies).log()
         if self.constraint == 'L-S':
             assign_metric = self.cosine_scale * torch.cosine_similarity(feature[:, None, :], proxies[None, :, :], dim=-1)  # [B, C]
         assign_distribution = func.softmax(assign_metric, dim=-1)
@@ -47,14 +50,15 @@ class CplModel(nn.Module):
         else:
             target_distribution = None
             if self.constraint == 'U-P':
-                rank_ids = torch.arange(self.num_ranks)[:, None].float()  # [C, 1]
-                # lpmf =
-                tgf = None
-                lam = gt + 0.5
+                rank_ids = torch.arange(self.num_ranks)[None, :].float().to(gt.device)  # [1, C]
+                lam = gt[:, None] + 0.5  # [B, 1]
+                factorial = torch.tensor(scipy.special.factorial(gt.cpu())).to(gt.device)[:, None]  # [B, 1]
+                tef = rank_ids * torch.log(lam) - lam - torch.log(factorial)
+                target_distribution = func.softmax(tef / self.poisson_tau, dim=-1)
             if self.constraint == 'U-B':
                 pass
             if self.constraint == 'L-L':
-                proxies_metric = -torch.cdist(proxies, proxies).detach()  # [C, C]
+                proxies_metric = -torch.cdist(proxies, proxies).log().detach()  # [C, C]
                 selected_proxies_metric = proxies_metric[gt, :]  # [B, C]
                 target_distribution = func.softmax(selected_proxies_metric, dim=-1)
             if self.constraint == 'L-S':
