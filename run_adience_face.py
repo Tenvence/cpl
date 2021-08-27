@@ -24,7 +24,7 @@ def get_args_parser():
 
     parser.add_argument('--feature_dim', default=512, type=int)
     parser.add_argument('--cosine_scale', default=7., type=float)
-    parser.add_argument('--poisson_tau', default=1., type=float)
+    parser.add_argument('--poisson_tau', default=0.0001, type=float)
     parser.add_argument('--constraint', default='U-P', type=str, help='{U-P, U-B, L-L, L-S}')
 
     parser.add_argument('--train_batch_size', default=64, type=int)
@@ -38,7 +38,7 @@ def get_args_parser():
 
     parser.add_argument('--warm_up_epoch', default=1, type=int)
     parser.add_argument('--warm_up_ratio', default=0.333, type=float)
-    parser.add_argument('--base_milestones', default=[7, 11], type=list)
+    parser.add_argument('--base_milestones', default=[9, 11], type=list)
     parser.add_argument('--step_gamma', default=0.1, type=float)
 
     parser.add_argument('--local_rank', default=0, type=int)

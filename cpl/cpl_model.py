@@ -17,7 +17,7 @@ class CplModel(nn.Module):
 
         self.feature_extractor = nn.Sequential(
             *list(cv_models.vgg16_bn(pretrained=True).children())[:-1],
-            nn.AdaptiveAvgPool2d((1, 1)), nn.Flatten(1), nn.Linear(512, dim)
+            nn.AdaptiveAvgPool2d((1, 1)), nn.Flatten(1), nn.Linear(512, dim, bias=False)
         )
 
         self.proxies_learner = None
@@ -30,7 +30,8 @@ class CplModel(nn.Module):
 
     @staticmethod
     def _get_kl_div(pred, target):
-        loss = target * (target.log() - pred.log())
+        # loss = target * (target.log() - pred.log())
+        loss = -target * pred.log()
         loss = loss.sum(dim=-1).mean()
         return loss
 
@@ -50,9 +51,11 @@ class CplModel(nn.Module):
         else:
             target_distribution = None
             if self.constraint == 'U-P':
-                rank_ids = torch.arange(self.num_ranks)[None, :].float().to(gt.device)  # [1, C]
+                rank_ids = torch.arange(self.num_ranks)[None, :].float()  # [1, C]
+                factorial = torch.tensor(scipy.special.factorial(rank_ids))[:, None]  # [1, C]
+                rank_ids = rank_ids.to(gt.device)
+                factorial = factorial.to(gt.device)
                 lam = gt[:, None] + 0.5  # [B, 1]
-                factorial = torch.tensor(scipy.special.factorial(gt.cpu())).to(gt.device)[:, None]  # [B, 1]
                 tef = rank_ids * torch.log(lam) - lam - torch.log(factorial)
                 target_distribution = func.softmax(tef / self.poisson_tau, dim=-1)
             if self.constraint == 'U-B':
