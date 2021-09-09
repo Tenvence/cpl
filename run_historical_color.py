@@ -21,9 +21,10 @@ def get_args_parser():
     parser.add_argument('--scheduler', default=4, type=int)
 
     parser.add_argument('--feature_dim', default=512, type=int)
-    parser.add_argument('--cosine_scale', default=7., type=float)
-    parser.add_argument('--poisson_tau', default=0.0001, type=float)
-    parser.add_argument('--constraint', default='U-P', type=str, help='{U-P, U-B, L-L, L-S}')
+    parser.add_argument('--cosine_scale', default=5., type=float)
+    parser.add_argument('--poisson_tau', default=0.01, type=float)
+    parser.add_argument('--binomial_tau', default=0.01, type=float)
+    parser.add_argument('--constraint', default='S-P', type=str, help='{S-P, S-B, H-L, H-S}')
 
     parser.add_argument('--train_batch_size', default=32, type=int)
     parser.add_argument('--eval_batch_size', default=64, type=int)
@@ -53,7 +54,7 @@ def run_fold(fold_idx, args):
     set_random_seed(args.random_seed + fold_idx)
     train_data_loader, val_data_loader, test_data_loader = hc_dataset.get_data_loaders(args.root, args.train_batch_size, args.eval_batch_size)
 
-    model = CplModel(num_ranks=5, dim=args.feature_dim, cosine_scale=args.cosine_scale, poisson_tau=args.poisson_tau, constraint=args.constraint).cuda()
+    model = CplModel(5, args.feature_dim, args.cosine_scale, args.poisson_tau, args.binomial_tau, args.constraint).cuda()
 
     optim_parameters = [
         {'params': [p for n, p in model.named_parameters() if n.startswith('feature_extractor') and p.requires_grad]},
