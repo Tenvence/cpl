@@ -14,23 +14,25 @@ class BaseProxiesLearner(nn.Module):
         return self.proxies
 
 
-class LinearLayoutConstrainedProxiesLearner(nn.Module):
+class LinearProxiesLearner(nn.Module):
     def __init__(self, num_ranks, dim):
-        super(LinearLayoutConstrainedProxiesLearner, self).__init__()
+        super(LinearProxiesLearner, self).__init__()
 
         self.rank_ids = nn.Parameter(torch.arange(num_ranks)[:, None].float(), requires_grad=False)
 
         self.v0 = nn.Parameter(torch.empty((1, dim)), requires_grad=True)
+        self.v1 = nn.Parameter(torch.empty((1, dim)), requires_grad=True)
         nn.init.xavier_normal_(self.v0)
+        nn.init.xavier_normal_(self.v1)
 
     def forward(self):
-        proxies = self.rank_ids * self.v0
+        proxies = self.rank_ids * self.v0 + self.v1
         return proxies
 
 
-class SemicircularLayoutConstrainedProxiesLearner(nn.Module):
+class SemicircularProxiesLearner(nn.Module):
     def __init__(self, num_ranks, dim):
-        super(SemicircularLayoutConstrainedProxiesLearner, self).__init__()
+        super(SemicircularProxiesLearner, self).__init__()
 
         self.num_ranks = num_ranks
         self.rank_ids = nn.Parameter(torch.arange(num_ranks)[:, None].float(), requires_grad=False)

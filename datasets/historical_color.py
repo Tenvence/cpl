@@ -24,11 +24,11 @@ def get_samples(root):
     return train_samples, val_samples, test_samples
 
 
-def get_data_loaders(root, train_batch_size, eval_batch_size):
+def get_data_loaders(root, batch_size):
     train_samples, val_samples, test_samples = get_samples(root)
 
-    train_data_loader, _ = vd.get_data_loader(train_samples, train_batch_size, is_train=True, use_ddp=False)
-    val_data_loader, _ = vd.get_data_loader(val_samples, eval_batch_size, is_train=False, use_ddp=False)
-    test_data_loader, _ = vd.get_data_loader(test_samples, eval_batch_size, is_train=False, use_ddp=False)
+    train_data_loader, _ = vd.get_data_loader(train_samples, batch_size, is_train=True, use_ddp=False)
+    val_data_loader, _ = vd.get_data_loader(val_samples, batch_size, is_train=False, use_ddp=False)
+    test_data_loader, _ = vd.get_data_loader(test_samples, batch_size, is_train=False, use_ddp=False)
 
     return train_data_loader, val_data_loader, test_data_loader

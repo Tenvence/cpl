@@ -34,22 +34,12 @@ class VisionDataset(data.Dataset):
         return img, label
 
 
-def     get_data_loader(samples, batch_size, is_train, use_ddp=False):
+def get_data_loader(samples, batch_size, is_train):
     if is_train:
         dataset = VisionDataset(samples, transform=train_transforms)
-        if use_ddp:
-            dist_sampler = data.distributed.DistributedSampler(dataset)
-            data_loader = data.DataLoader(dataset, batch_size, num_workers=4, sampler=dist_sampler, pin_memory=True, drop_last=True)
-        else:
-            dist_sampler = None
-            data_loader = data.DataLoader(dataset, batch_size, num_workers=4, pin_memory=True, drop_last=True, shuffle=True)
+        data_loader = data.DataLoader(dataset, batch_size, num_workers=4, pin_memory=True, drop_last=True, shuffle=True)
     else:
         dataset = VisionDataset(samples, transform=eval_transforms)
-        if use_ddp:
-            dist_sampler = data.distributed.DistributedSampler(dataset)
-            data_loader = data.DataLoader(dataset, batch_size, num_workers=4, sampler=dist_sampler, pin_memory=True)
-        else:
-            dist_sampler = None
-            data_loader = data.DataLoader(dataset, batch_size, num_workers=4, pin_memory=True)
+        data_loader = data.DataLoader(dataset, batch_size, num_workers=4, pin_memory=True)
 
-    return data_loader, dist_sampler
+    return data_loader
