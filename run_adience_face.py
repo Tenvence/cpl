@@ -5,12 +5,15 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torch.utils.data
+import torch.utils.data as data
+import time
+import torch.distributed as dist
+import torch.nn.parallel as parallel
 
 import datasets.adience_face as af_dataset
 import engine
 import lr_lambda as ll
-from cpl.cpl_models import CplModel
+from cpl.cpl_model import CplModel
 from cpl.criterions import SoftCplPoissonLoss, SoftCplBinomialLoss, HardCplLoss
 from cpl.feature_extractors import Vgg16, ResNet18, ResNet101
 from cpl.metric_methods import EuclideanMetric, CosineMetric
@@ -31,7 +34,7 @@ def get_args_parser():
     parser.add_argument('--cosine_scale', default=7., type=float)
     parser.add_argument('--tau', default=0.1, type=float)
 
-    parser.add_argument('--batch_size', default=512, type=int)
+    parser.add_argument('--batch_size', default=256, type=int)
     parser.add_argument('--base_epochs', default=12, type=int)
     parser.add_argument('--lr', default=0.1, type=float)
     parser.add_argument('--anchor_lr_mul', default=10, type=float)
@@ -42,6 +45,9 @@ def get_args_parser():
     parser.add_argument('--warm_up_ratio', default=0.333, type=float)
     parser.add_argument('--base_milestones', default=[9, 11], type=list)
     parser.add_argument('--step_gamma', default=0.1, type=float)
+
+    parser.add_argument('--local_rank', default=0, type=int)
+    parser.add_argument('--master_rank', default=0, type=int)
 
     return parser.parse_args()
 
@@ -55,7 +61,15 @@ def set_random_seed(seed):
 
 def run_fold(fold_idx, args):
     num_ranks = 8
-    train_data_loader, val_data_loader, test_data_loader = af_dataset.get_data_loader(args.root, fold_idx, args.batch_size)
+    train_dataset, val_dataset, test_dataset = af_dataset.get_datasets(args.root, fold_idx)
+
+    train_dist_sampler = data.distributed.DistributedSampler(train_dataset)
+    val_dist_sampler = data.distributed.DistributedSampler(val_dataset)
+    test_dist_sampler = data.distributed.DistributedSampler(test_dataset)
+
+    train_data_loader = data.DataLoader(train_dataset, args.batch_size, num_workers=4, sampler=train_dist_sampler, pin_memory=True, drop_last=True)
+    val_data_loader = data.DataLoader(val_dataset, args.batch_size, num_workers=4, sampler=val_dist_sampler, pin_memory=True)
+    test_data_loader = data.DataLoader(test_dataset, args.batch_size, num_workers=4, sampler=test_dist_sampler, pin_memory=True)
 
     feature_extractor = None
     if args.feature_extractor == 'vgg16':
@@ -87,8 +101,10 @@ def run_fold(fold_idx, args):
         proxies_learner = SemicircularProxiesLearner(num_ranks, args.feature_dim)
         criterion = HardCplLoss()
 
-    model = CplModel(feature_extractor, proxies_learner, metric_method)
-    model = nn.DataParallel(model).cuda()
+    model = CplModel(feature_extractor, proxies_learner, metric_method).cuda()
+    model = parallel.DistributedDataParallel(model, device_ids=[dist.get_rank()], find_unused_parameters=True)
+
+    model_name = f'model_adience_face_{args.constraint}_{args.feature_extractor}_{args.metric_method}_{args.feature_dim}_{args.cosine_scale}_{args.tau}.pkl'
 
     optim_parameters = [
         {'params': [p for n, p in model.module.named_parameters() if n.startswith('feature_extractor') and p.requires_grad]},
@@ -100,56 +116,68 @@ def run_fold(fold_idx, args):
     lr_lambda = ll.get_warm_up_multi_step_lr_lambda(len(train_data_loader), args.warm_up_epoch, args.warm_up_ratio, milestones, args.step_gamma)
     lr_scheduler = optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
-    best_val_acc, best_val_mae = 100, 100
-    test_acc, test_mae = 0, 0
+    best_val_mae = 100
     epochs = args.scheduler * args.base_epochs
     for epoch_idx in range(epochs):
-        print(f'Fold: {fold_idx}; Epoch: {epoch_idx + 1:>2} / {epochs};')
+        train_dist_sampler.set_epoch(epoch_idx)
 
         epoch_loss, t_train = engine.train(model, criterion, optimizer, lr_scheduler, train_data_loader)
-        val_acc, val_mae, t_val = engine.val(model, val_data_loader)
-        print(f'    Train: [Loss={epoch_loss:.4f}; Time={t_train:.2f}s]; Val: [ACC={val_acc:.3f}; MAE={val_mae:.3f}; Time={t_val:.2f}s];')
+        dist.reduce(epoch_loss, dst=args.master_rank, op=dist.ReduceOp.SUM)
 
-        if val_mae < best_val_mae:
-            best_val_acc = val_acc
-            best_val_mae = val_mae
-            test_acc, test_mae, test_t = engine.val(model, test_data_loader)
-            print(f'    Get best model! Test: [ACC={test_acc:.3f}; MAE={test_mae:.3f}; Time={test_t:.2f}s].\n')
-        else:
-            print(f'    Do not get best model! Best Test: [ACC={test_acc:.3f}; MAE={test_mae:.3f}].\n')
+        _, val_mae, val_t = engine.val(model, val_data_loader)
+        dist.reduce(val_mae, dst=args.master_rank, op=dist.ReduceOp.SUM)
 
-    print(f'Fold: {fold_idx}; Best Val: [ACC={best_val_acc:.3f}; MAE={best_val_mae:.3f}]; Best Test: [ACC={test_acc:.3f}; MAE={test_mae:.3f}].\n')
+        if dist.get_rank() == args.master_rank:
+            epoch_loss = epoch_loss.item() / dist.get_world_size()
+            val_mae = val_mae.item() / dist.get_world_size()
+            print_str = f'Fold:{fold_idx};Epoch:{epoch_idx + 1}/{epochs};Train:[Loss={epoch_loss:.4f};Time={t_train:.2f}s];Val:[MAE={val_mae:.3f};Time={val_t:.2f}s];'
+            if val_mae < best_val_mae:
+                best_val_mae = val_mae
+                torch.save(model.module.state_dict(), model_name)
+                print_str += ':-)'
+            print(print_str)
 
-    return best_val_acc, best_val_mae, test_acc, test_mae
+    time.sleep(1)
+    model.module.load_state_dict(torch.load(model_name))
+    test_acc, test_mae, test_t = engine.val(model, test_data_loader)
+    print(f'device: {dist.get_rank()}; ACC: {test_acc:.3f}, MAE: {test_mae:.3f}; Time: {test_t:.2f}.')
+
+    time.sleep(1)
+    dist.reduce(test_acc, dst=args.master_rank, op=dist.ReduceOp.SUM)
+    time.sleep(1)
+    dist.reduce(test_mae, dst=args.master_rank, op=dist.ReduceOp.SUM)
+
+    if dist.get_rank() == args.master_rank:
+        test_acc = test_acc.item() / dist.get_world_size()
+        test_mae = test_mae.item() / dist.get_world_size()
+        print(f'Test: [ACC: {test_acc:.3f}; MAE: {test_mae:.3f}].\n')
+
+    return best_val_mae, test_acc, test_mae
 
 
 def main():
     args = get_args_parser()
-    set_random_seed(args.random_seed)
+    dist.init_process_group(backend='nccl')
+    set_random_seed(args.random_seed + dist.get_rank())
+    torch.cuda.set_device(torch.device(f'cuda:{dist.get_rank()}'))
 
-    val_acc_list, val_mae_list = [], []
-    test_acc_list, test_mae_list = [], []
+    val_mae_list, test_acc_list, test_mae_list = [], [], []
     for fold_idx in range(5):
-        val_acc, val_mae, test_acc, test_mae = run_fold(fold_idx, args)
-        val_acc_list.append(val_acc)
+        val_mae, test_acc, test_mae = run_fold(fold_idx, args)
         val_mae_list.append(val_mae)
         test_acc_list.append(test_acc)
         test_mae_list.append(test_mae)
 
-    val_acc_mean = np.array(val_acc_list).mean()
-    val_acc_std = np.array(val_acc_list).std()
+    if dist.get_rank() == args.master_rank:
+        val_mae_mean = np.array(val_mae_list).mean()
 
-    val_mae_mean = np.array(val_mae_list).mean()
-    val_mae_std = np.array(val_mae_list).std()
+        test_acc_mean = np.array(test_acc_list).mean()
+        test_acc_std = np.array(test_acc_list).std()
 
-    test_acc_mean = np.array(test_acc_list).mean()
-    test_acc_std = np.array(test_acc_list).std()
+        test_mae_mean = np.array(test_mae_list).mean()
+        test_mae_std = np.array(test_mae_list).std()
 
-    test_mae_mean = np.array(test_mae_list).mean()
-    test_mae_std = np.array(test_mae_list).std()
-
-    print(f'Final Val : [ACC: {val_acc_mean:.3f} ± {val_acc_std:.3f}; MAE: {val_mae_mean:.3f} ± {val_mae_std:.3f}];')
-    print(f'Final Test: [ACC: {test_acc_mean:.3f} ± {test_acc_std:.3f}; MAE: {test_mae_mean:.3f} ± {test_mae_std:.3f}].')
+        print(f'Final Val MAE: {val_mae_mean:.3f}; Final Test: [ACC: {test_acc_mean:.3f} ± {test_acc_std:.3f}; MAE: {test_mae_mean:.3f} ± {test_mae_std:.3f}].')
 
 
 if __name__ == '__main__':

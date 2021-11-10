@@ -14,14 +14,13 @@ def get_samples(root, fold_idx, name):
     return samples
 
 
-def get_data_loader(root, fold_idx, batch_size):
+def get_datasets(root, fold_idx):
     train_samples = get_samples(root, fold_idx, 'age_train.txt')
-    train_data_loader = vd.get_data_loader(train_samples, batch_size, is_train=True)
-
     val_samples = get_samples(root, fold_idx, 'age_val.txt')
-    val_data_loader = vd.get_data_loader(val_samples, batch_size, is_train=False)
-
     test_samples = get_samples(root, fold_idx, 'age_test.txt')
-    test_data_loader = vd.get_data_loader(test_samples, batch_size, is_train=False)
 
-    return train_data_loader, val_data_loader, test_data_loader
+    train_dataset = vd.get_dataset(train_samples, is_train=True)
+    val_dataset = vd.get_dataset(val_samples, is_train=False)
+    test_dataset = vd.get_dataset(test_samples, is_train=False)
+
+    return train_dataset, val_dataset, test_dataset

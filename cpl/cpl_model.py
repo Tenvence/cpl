@@ -11,7 +11,6 @@ class CplModel(nn.Module):
         self.metric_method = metric_method
         self.proxies_learner = proxies_learner
 
-    @amp.autocast()
     def forward(self, x):
         feature = self.feature_extractor(x)
         proxies = self.proxies_learner()

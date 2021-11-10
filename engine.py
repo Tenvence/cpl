@@ -55,4 +55,7 @@ def val(model, data_loader):
     acc = metrics.accuracy_score(gt_list.cpu(), pred_list.cpu()) * 100
     mae = metrics.mean_absolute_error(gt_list.cpu(), pred_list.cpu())
 
+    acc = torch.tensor(acc).cuda()
+    mae = torch.tensor(mae).cuda()
+
     return acc, mae, et - st

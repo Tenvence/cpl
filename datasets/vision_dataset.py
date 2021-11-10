@@ -34,12 +34,9 @@ class VisionDataset(data.Dataset):
         return img, label
 
 
-def get_data_loader(samples, batch_size, is_train):
+def get_dataset(samples, is_train):
     if is_train:
         dataset = VisionDataset(samples, transform=train_transforms)
-        data_loader = data.DataLoader(dataset, batch_size, num_workers=4, pin_memory=True, drop_last=True, shuffle=True)
     else:
         dataset = VisionDataset(samples, transform=eval_transforms)
-        data_loader = data.DataLoader(dataset, batch_size, num_workers=4, pin_memory=True)
-
-    return data_loader
+    return dataset
