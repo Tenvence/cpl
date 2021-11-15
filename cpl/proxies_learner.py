@@ -21,12 +21,10 @@ class LinearProxiesLearner(nn.Module):
         self.rank_ids = nn.Parameter(torch.arange(num_ranks)[:, None].float(), requires_grad=False)
 
         self.v0 = nn.Parameter(torch.empty((1, dim)), requires_grad=True)
-        self.v1 = nn.Parameter(torch.empty((1, dim)), requires_grad=True)
         nn.init.xavier_normal_(self.v0)
-        nn.init.xavier_normal_(self.v1)
 
     def forward(self):
-        proxies = self.rank_ids * self.v0 + self.v1
+        proxies = self.rank_ids * self.v0
         return proxies
 
 

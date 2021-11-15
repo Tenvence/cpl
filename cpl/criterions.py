@@ -9,6 +9,12 @@ class Criterion(nn.Module):
         pass
 
 
+class UplLoss(Criterion):
+    def forward(self, assign_distribution, gt, proxies_metric):
+        loss = func.nll_loss(assign_distribution.log(), gt)
+        return loss
+
+
 class SoftCplPoissonLoss(Criterion):
     def __init__(self, num_ranks, tau):
         super(SoftCplPoissonLoss, self).__init__()

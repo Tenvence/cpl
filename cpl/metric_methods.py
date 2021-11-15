@@ -14,4 +14,4 @@ class CosineMetric(nn.Module):
 class EuclideanMetric(nn.Module):
     @staticmethod
     def forward(x1, x2):
-        return -torch.cdist(x1, x2)
+        return -torch.log(1 + torch.cdist(x1, x2) ** 2)
