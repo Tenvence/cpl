@@ -5,7 +5,7 @@ import torch
 import torch.cuda.amp as amp
 
 
-def train(model, criterion, optimizer, lr_scheduler, data_loader):
+def train(model, criterion, optimizer, data_loader):
     model.train()
     scaler = amp.GradScaler()
     losses = []
@@ -23,7 +23,7 @@ def train(model, criterion, optimizer, lr_scheduler, data_loader):
         scaler.scale(loss).backward()
         scaler.step(optimizer)
         scaler.update()
-        lr_scheduler.step()
+        # lr_scheduler.step()
 
         losses.append(loss.detach())
     et = time.time()
