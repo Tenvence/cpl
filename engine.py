@@ -23,7 +23,8 @@ def train(model, criterion, optimizer, data_loader):
         scaler.scale(loss).backward()
         scaler.step(optimizer)
         scaler.update()
-        # lr_scheduler.step()
+        # if lr_scheduler is not None:
+        #     lr_scheduler.step()
 
         losses.append(loss.detach())
     et = time.time()

@@ -10,8 +10,8 @@ import tqdm
 def get_args_parser():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--image_aesthetics_path', default='~/Documents/DataSet/ImageAesthetics/beauty-icwsm15-dataset.tsv', type=str)
-    parser.add_argument('--output_path', default='~/Documents/DataSet/ImageAesthetics/', type=str)
+    parser.add_argument('--image_aesthetics_path', default='../../DataSet/ImageAesthetics/beauty-icwsm15-dataset.tsv', type=str)
+    parser.add_argument('--output_path', default='../../DataSet/ImageAesthetics/', type=str)
     parser.add_argument('--api_key', default='1188f7f86dd85503a7f28b983a3ca0c5', type=str)
     parser.add_argument('--proxies_port', default=1087, type=int)
 

@@ -6,7 +6,7 @@ def get_num_folds(args):
     if args.dataset == 'AF':
         num_folds = 5
     elif args.dataset == 'HC':
-        raise NotImplementedError
+        num_folds = 10
     elif args.dataset == 'IA':
         raise NotImplementedError
     elif args.dataset == 'MI':
@@ -70,7 +70,9 @@ def get_model_criterion(num_ranks, args):
     elif args.constraint == 'S-B':
         raise NotImplementedError
     elif args.constraint == 'H-L':
-        raise NotImplementedError
+        proxies_learner = cpl.LinearProxiesLearner(num_ranks, args.feature_dim)
+        criterion = cpl.HardCplLoss()
+        metric_method = cpl.EuclideanMetric()
     elif args.constraint == 'H-S':
         raise NotImplementedError
     else:

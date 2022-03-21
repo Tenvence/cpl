@@ -21,17 +21,18 @@ def get_args_parser():
 
     parser.add_argument('--dataset', default='AF', help='{AF, HC, IA, MI}')
     parser.add_argument('--af_root', default='../../DataSet/AdienceFace', type=str)
+    parser.add_argument('--hc_root', default='../../DataSet/HistoricalColor', type=str)
 
     parser.add_argument('--constraint', default='S-P', type=str, help='{UPL, S-P, S-B, H-L, H-S}')
     parser.add_argument('--feature_extractor', default='V16', type=str, help='{V16, R50, R101}')
     parser.add_argument('--metric_method', default='E', type=str, help='{E, C}')
     parser.add_argument('--feature_dim', default=512, type=int)
     parser.add_argument('--cosine_scale', default=7., type=float)
-    parser.add_argument('--tau', default=0.1, type=float)
+    parser.add_argument('--tau', default=0.0001, type=float)
 
+    parser.add_argument('--epochs', default=50, type=int)
     parser.add_argument('--batch_size', default=32, type=int)
     parser.add_argument('--lr', default=0.0001, type=float)
-    parser.add_argument('--momentum', default=0.9, type=float)
     parser.add_argument('--weight_decay', default=1e-4, type=float)
 
     parser.add_argument('--local_rank', default=0, type=int)
@@ -60,12 +61,12 @@ def run_fold(args, fold_idx):
     model, criterion = utils.get_model_criterion(num_ranks, args)
     model = parallel.DistributedDataParallel(model.cuda(), device_ids=[dist.get_rank()], find_unused_parameters=True)
     optimizer = optim.Adam(model.module.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    # lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1)
 
     model_path = 'model.pkl'
 
-    epochs = 30
     best_val_mae = 100
-    for epoch_idx in range(epochs):
+    for epoch_idx in range(args.epochs):
         train_dist_sampler.set_epoch(epoch_idx)
 
         epoch_loss, t_train = engine.train(model, criterion, optimizer, train_data_loader)
@@ -77,7 +78,7 @@ def run_fold(args, fold_idx):
         if dist.get_rank() == args.master_rank:
             epoch_loss = epoch_loss.item() / dist.get_world_size()
             val_mae = val_mae.item() / dist.get_world_size()
-            print_str = f'Fold:{fold_idx};Epoch:{epoch_idx + 1}/{epochs};Train:[Loss={epoch_loss:.4f};Time={t_train:.2f}s];Val:[MAE={val_mae:.3f};Time={val_t:.2f}s];'
+            print_str = f'Fold:{fold_idx};Epoch:{epoch_idx + 1}/{args.epochs};Train:[Loss={epoch_loss:.4f};Time={t_train:.2f}s];Val:[MAE={val_mae:.3f};Time={val_t:.2f}s];'
             if val_mae < best_val_mae:
                 best_val_mae = val_mae
                 torch.save(model.module.state_dict(), model_path)
