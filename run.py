@@ -22,6 +22,8 @@ def get_args_parser():
     parser.add_argument('--dataset', default='AF', help='{AF, HC, IA, MI}')
     parser.add_argument('--af_root', default='../../DataSet/AdienceFace', type=str)
     parser.add_argument('--hc_root', default='../../DataSet/HistoricalColor', type=str)
+    parser.add_argument('--ia_root', default='../../DataSet/ImageAesthetics', type=str)
+    parser.add_argument('--ia_category', default='nature', type=str, help='{nature, animals, urban, people}')
 
     parser.add_argument('--constraint', default='S-P', type=str, help='{UPL, S-P, S-B, H-L, H-S}')
     parser.add_argument('--feature_extractor', default='V16', type=str, help='{V16, R50, R101}')

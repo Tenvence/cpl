@@ -8,7 +8,7 @@ def get_num_folds(args):
     elif args.dataset == 'HC':
         num_folds = 10
     elif args.dataset == 'IA':
-        raise NotImplementedError
+        num_folds = 5
     elif args.dataset == 'MI':
         raise NotImplementedError
     else:
@@ -20,9 +20,9 @@ def get_train_val_test_datasets(args, fold_idx):
     if args.dataset == 'AF':
         train_val_test_datasets = datasets.AdienceFaceDatasets(args.af_root, fold_idx)
     elif args.dataset == 'HC':
-        raise NotImplementedError
+        train_val_test_datasets = datasets.HistoricalColorDatasets(args.hc_root, fold_idx)
     elif args.dataset == 'IA':
-        raise NotImplementedError
+        train_val_test_datasets = datasets.ImageAestheticsDatasets(f'{args.ia_root}#{args.ia_category}', fold_idx)
     elif args.dataset == 'MI':
         raise NotImplementedError
     else:

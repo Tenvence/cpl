@@ -29,10 +29,10 @@ class HistoricalColorDatasets(vd.VisionDatasets):
         return train_samples, val_samples, test_samples
 
     def get_train_dataset(self):
-        return vd.VisionDataset(self.train_samples)
+        return vd.VisionDataset(self.train_samples, is_train=True)
 
     def get_val_dataset(self):
-        return vd.VisionDataset(self.val_samples)
+        return vd.VisionDataset(self.val_samples, is_train=False)
 
     def get_test_dataset(self):
-        return vd.VisionDataset(self.test_samples)
+        return vd.VisionDataset(self.test_samples, is_train=False)
