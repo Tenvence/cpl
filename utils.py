@@ -3,28 +3,24 @@ import datasets
 
 
 def get_num_folds(args):
-    if args.dataset == 'AF':
+    if args.dataset == 'AdienceFace':
         num_folds = 5
-    elif args.dataset == 'HC':
+    elif args.dataset == 'HistoricalColor':
         num_folds = 10
-    elif args.dataset == 'IA':
+    elif args.dataset == 'ImageAesthetics':
         num_folds = 5
-    elif args.dataset == 'MI':
-        raise NotImplementedError
     else:
         raise NotImplementedError
     return num_folds
 
 
 def get_train_val_test_datasets(args, fold_idx):
-    if args.dataset == 'AF':
-        train_val_test_datasets = datasets.AdienceFaceDatasets(args.af_root, fold_idx)
-    elif args.dataset == 'HC':
-        train_val_test_datasets = datasets.HistoricalColorDatasets(args.hc_root, fold_idx)
-    elif args.dataset == 'IA':
-        train_val_test_datasets = datasets.ImageAestheticsDatasets(f'{args.ia_root}#{args.ia_category}', fold_idx)
-    elif args.dataset == 'MI':
-        raise NotImplementedError
+    if args.dataset == 'AdienceFace':
+        train_val_test_datasets = datasets.AdienceFaceDatasets(args.adience_face_root, fold_idx)
+    elif args.dataset == 'HistoricalColor':
+        train_val_test_datasets = datasets.HistoricalColorDatasets(args.historical_color_root, fold_idx)
+    elif args.dataset == 'ImageAesthetics':
+        train_val_test_datasets = datasets.ImageAestheticsDatasets(f'{args.image_aesthetics_root}#{args.image_aesthetics_cat}', fold_idx)
     else:
         raise NotImplementedError
 
@@ -62,20 +58,23 @@ def get_model_criterion(num_ranks, args):
     feature_extractor = get_feature_extractor(args)
     metric_method = get_metric_method(args)
 
-    if args.constraint == 'UPL':
+    if args.constraint == 'S-P':
         proxies_learner = cpl.BaseProxiesLearner(num_ranks, args.feature_dim)
-        criterion = cpl.UplLoss()
-    elif args.constraint == 'S-P':
-        raise NotImplementedError
+        criterion = cpl.SoftCplPoissonLoss(num_ranks, args.tau, args.loss_lam)
     elif args.constraint == 'S-B':
-        raise NotImplementedError
+        proxies_learner = cpl.BaseProxiesLearner(num_ranks, args.feature_dim)
+        criterion = cpl.SoftCplBinomialLoss(num_ranks, args.tau, args.loss_lam)
     elif args.constraint == 'H-L':
         proxies_learner = cpl.LinearProxiesLearner(num_ranks, args.feature_dim)
         criterion = cpl.HardCplLoss()
         metric_method = cpl.EuclideanMetric()
     elif args.constraint == 'H-S':
-        raise NotImplementedError
+        proxies_learner = cpl.SemicircularProxiesLearner(num_ranks, args.feature_dim)
+        criterion = cpl.HardCplLoss()
+        metric_method = cpl.CosineMetric(args.cosine_scale)
     else:
         raise NotImplementedError
 
-    return cpl.CplModel(feature_extractor, proxies_learner, metric_method), criterion
+    model = cpl.CplModel(feature_extractor, proxies_learner, metric_method)
+
+    return model, criterion

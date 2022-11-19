@@ -5,7 +5,7 @@ import torch
 import torch.cuda.amp as amp
 
 
-def train(model, criterion, optimizer, data_loader):
+def train(model, criterion, optimizer, lr_scheduler, data_loader):
     model.train()
     scaler = amp.GradScaler()
     losses = []
@@ -17,16 +17,17 @@ def train(model, criterion, optimizer, data_loader):
 
         optimizer.zero_grad()
         with amp.autocast():
-            assign_distribution, proxies_metric = model(img)
-            loss = criterion(assign_distribution, label, proxies_metric)
+            assign_metric, proxies_metric = model(img)
+            loss = criterion(assign_metric, label, proxies_metric)
 
         scaler.scale(loss).backward()
         scaler.step(optimizer)
         scaler.update()
-        # if lr_scheduler is not None:
-        #     lr_scheduler.step()
-
         losses.append(loss.detach())
+
+    if lr_scheduler is not None:
+        lr_scheduler.step()
+
     et = time.time()
 
     return sum(losses) / len(losses), et - st
@@ -40,21 +41,18 @@ def val(model, data_loader):
     st = time.time()
     for img, label in data_loader:
         img = img.cuda(non_blocking=True)
-        label = label.cuda(non_blocking=True)
-
         with amp.autocast():
-            assign_distribution, _ = model(img)
-            pred = torch.argmax(assign_distribution, dim=-1)
-
+            assign_metric, proxies_metric = model(img)
+            pred = torch.argmax(assign_metric, dim=-1)
         pred_list.append(pred)
         gt_list.append(label)
     et = time.time()
 
-    pred_list = torch.cat(pred_list, dim=0)
+    pred_list = torch.cat(pred_list, dim=0).cpu()
     gt_list = torch.cat(gt_list, dim=0)
 
-    acc = metrics.accuracy_score(gt_list.cpu(), pred_list.cpu()) * 100
-    mae = metrics.mean_absolute_error(gt_list.cpu(), pred_list.cpu())
+    acc = metrics.accuracy_score(gt_list, pred_list) * 100
+    mae = metrics.mean_absolute_error(gt_list, pred_list)
 
     acc = torch.tensor(acc).cuda()
     mae = torch.tensor(mae).cuda()

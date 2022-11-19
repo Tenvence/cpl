@@ -1,8 +1,5 @@
 import os
-
-import numpy as np
-import pandas as pd
-import sklearn.model_selection as model_selection
+import json
 
 import datasets.vision_dataset as vd
 
@@ -15,27 +12,19 @@ class ImageAestheticsDatasets(vd.VisionDatasets):
         self.num_ranks = 5
 
     @staticmethod
+    def parse_samples(root, file_name):
+        with open(os.path.join(root, file_name), 'r') as f:
+            samples = [line.strip().split(',') for line in f.readlines()]
+            samples = [(os.path.join(root, 'img_files', f'{i}.jpg'), int(l)) for i, l in samples]
+        return samples
+
+    @staticmethod
     def get_samples(root, category, fold_idx):
-        tsv_file = pd.read_csv(os.path.join(root, 'beauty-icwsm15-dataset.tsv'), sep='\t', header=0)
-        img_paths, labels = [], []
-        for photo_id, category, scores in zip(tsv_file['#flickr_photo_id'], tsv_file['category'], tsv_file['beauty_scores']):
-            if category == category:
-                img_paths.append(os.path.join(root, 'img_files', f'{photo_id}.jpg'))
-                labels.append(int(np.median(np.median([int(s) for s in scores.split(',')]))) - 1)
-
-        skf = model_selection.StratifiedKFold(n_splits=5)
-        train_val_ids, test_ids = skf.split(img_paths, labels)[fold_idx]
-
-        train_val_paths = [img_paths[i] for i in train_val_ids]
-        train_val_labels = [labels[i] for i in train_val_ids]
-        train_paths, val_paths, train_labels, val_labels = model_selection.train_test_split(train_val_paths, train_val_labels, test_size=0.067, stratify=train_val_labels)
-        test_paths = [labels[i] for i in train_val_ids]
-        test_labels = [labels[i] for i in test_ids]
-
-        train_samples = [(p, l) for p, l in zip(train_paths, train_labels)]
-        val_samples = [(p, l) for p, l in zip(val_paths, val_labels)]
-        test_samples = [(p, l) for p, l in zip(test_paths, test_labels)]
-
+        with open(os.path.join(root, f'{category}_fold_{fold_idx}.txt'), 'r') as f:
+            sample_dict = json.load(f)
+        train_samples = [(os.path.join(root, 'img_files', f'{i}.jpg'), int(l)) for i, l in sample_dict['train']]
+        val_samples = [(os.path.join(root, 'img_files', f'{i}.jpg'), int(l)) for i, l in sample_dict['val']]
+        test_samples = [(os.path.join(root, 'img_files', f'{i}.jpg'), int(l)) for i, l in sample_dict['test']]
         return train_samples, val_samples, test_samples
 
     def get_train_dataset(self):

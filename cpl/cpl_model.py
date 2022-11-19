@@ -1,5 +1,4 @@
 import torch.nn as nn
-import torch.nn.functional as func
 
 
 class CplModel(nn.Module):
@@ -15,8 +14,6 @@ class CplModel(nn.Module):
         proxies = self.proxies_learner()
 
         assign_metric = self.metric_method(feature, proxies)
-        assign_distribution = func.softmax(assign_metric, dim=-1)
-
         proxies_metric = self.metric_method(proxies, proxies)
 
-        return assign_distribution, proxies_metric
+        return assign_metric, proxies_metric

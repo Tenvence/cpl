@@ -9,16 +9,16 @@ class VisionDataset(data.Dataset):
 
         self.train_transforms = transforms.Compose([
             transforms.RandomResizedCrop(size=224, scale=(0.08, 1.0), ratio=(3. / 4., 4. / 3.)),
-            transforms.RandomHorizontalFlip(p=0.5),
             transforms.Resize((224, 224)),
+            transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.4850, 0.4580, 0.4076], std=[0.2290, 0.2240, 0.2250]),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ])
         self.eval_transforms = transforms.Compose([
             transforms.Resize(256),
             transforms.CenterCrop(224),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.4850, 0.4580, 0.4076], std=[0.2290, 0.2240, 0.2250]),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ])
 
         self.samples = samples
@@ -29,7 +29,7 @@ class VisionDataset(data.Dataset):
 
     def __getitem__(self, idx):
         img_path, label = self.samples[idx]
-        img = Image.open(img_path)
+        img = Image.open(img_path).convert('RGB')
         img = self.train_transforms(img) if self.is_train else self.eval_transforms(img)
         return img, label
 

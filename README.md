@@ -1,1 +1,2 @@
-# constrained-proxies-learning
+# Constrained Proxies Learning (AAAI'23)
+
