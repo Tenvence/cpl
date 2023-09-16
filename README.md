@@ -23,10 +23,13 @@ For deep ordinal classification, learning a well-structured feature space specif
 
 ## Reference
 ```
-@article{wang2023controlling,
+@inproceedings{wang2023controlling,
   title={Controlling Class Layout for Deep Ordinal Classification via Constrained Proxies Learning},
-  author={Wang, Cong and Jiang, Zhiwei and Yin, Yafeng and Cheng, Zifeng and Ge, Shiping and Gu, Qing},
-  journal={arXiv preprint arXiv:2303.00396},
+  author=Wang, Cong and Jiang, Zhiwei and Yin, Yafeng and Cheng, Zifeng and Ge, Shiping and Gu, Qing},
+  booktitle={Proceedings of the AAAI Conference on Artificial Intelligence},
+  volume={37},
+  number={2},
+  pages={2483--2491},
   year={2023}
 }
 ```
